@@ -7,7 +7,6 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 
 	"github.com/grafana/sobek"
@@ -137,7 +136,7 @@ func (mi *ModuleInstance) openImpl(path string) (*File, error) {
 
 	file := &File{
 		Path: path,
-		ReadSeekStater: &file{
+		Impl: file{
 			path: path,
 			data: data,
 		},
@@ -146,26 +145,6 @@ func (mi *ModuleInstance) openImpl(path string) (*File, error) {
 	}
 
 	return file, nil
-}
-
-// Stater is an interface that provides information about a file.
-//
-// Although in the context of this module we have a single implementation
-// of this interface, it is defined to allow exposing the `file`'s behavior
-// to other module through the `ReadSeekStater` interface without having to
-// leak our internal abstraction.
-type Stater interface {
-	// Stat returns a FileInfo describing the named file.
-	Stat() *FileInfo
-}
-
-// ReadSeekStater is an interface that combines the io.ReadSeeker and Stater
-// interfaces and ensure that structs implementing it have the necessary
-// methods to interact with files.
-type ReadSeekStater interface {
-	io.Reader
-	io.Seeker
-	Stater
 }
 
 // File represents a file and exposes methods to interact with it.
@@ -183,7 +162,7 @@ type File struct {
 	// implementation details, but keep it public so that we can access it
 	// from other modules that would want to leverage its implementation of
 	// io.Reader and io.Seeker.
-	ReadSeekStater ReadSeekStater `js:"-"`
+	Impl file `js:"-"`
 
 	// vu holds a reference to the VU this file is associated with.
 	//
@@ -203,7 +182,7 @@ func (f *File) Stat() *sobek.Promise {
 	promise, resolve, _ := promises.New(f.vu)
 
 	go func() {
-		resolve(f.ReadSeekStater.Stat())
+		resolve(f.Impl.stat())
 	}()
 
 	return promise
@@ -248,7 +227,7 @@ func (f *File) Read(into sobek.Value) *sobek.Promise {
 	// occurs on the main thread, during the promise's resolution.
 	callback := f.vu.RegisterCallback()
 	go func() {
-		n, readErr := f.ReadSeekStater.Read(buffer)
+		n, readErr := f.Impl.Read(buffer)
 		callback(func() error {
 			_ = copy(intoBytes[0:n], buffer)
 
@@ -311,7 +290,7 @@ func (f *File) Seek(offset sobek.Value, whence sobek.Value) *sobek.Promise {
 
 	callback := f.vu.RegisterCallback()
 	go func() {
-		newOffset, err := f.ReadSeekStater.Seek(intOffset, seekMode)
+		newOffset, err := f.Impl.Seek(intOffset, seekMode)
 		callback(func() error {
 			if err != nil {
 				reject(err)
