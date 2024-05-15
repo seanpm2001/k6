@@ -13,7 +13,6 @@ import (
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"go.k6.io/k6/js/promises"
-	"go.k6.io/k6/lib/fsext"
 )
 
 type (
@@ -135,15 +134,17 @@ func (mi *ModuleInstance) openImpl(path string) (*File, error) {
 		return nil, err
 	}
 
-	return &File{
+	file := &File{
 		Path: path,
-		file: file{
+		Impl: file{
 			path: path,
 			data: data,
 		},
 		vu:    mi.vu,
 		cache: mi.cache,
-	}, nil
+	}
+
+	return file, nil
 }
 
 // File represents a file and exposes methods to interact with it.
@@ -154,8 +155,14 @@ type File struct {
 	// Path holds the name of the file, as presented to [Open].
 	Path string `json:"path"`
 
-	// file contains the actual implementation for the file system.
-	file
+	// Impl contains the actual implementation of the file logic, and
+	// interacts with the underlying file system.
+	//
+	// Note that we explicitly omit exposing this to JS to avoid leaking
+	// implementation details, but keep it public so that we can access it
+	// from other modules that would want to leverage its implementation of
+	// io.Reader and io.Seeker.
+	Impl file `js:"-"`
 
 	// vu holds a reference to the VU this file is associated with.
 	//
@@ -175,7 +182,7 @@ func (f *File) Stat() *sobek.Promise {
 	promise, resolve, _ := promises.New(f.vu)
 
 	go func() {
-		resolve(f.file.stat())
+		resolve(f.Impl.stat())
 	}()
 
 	return promise
@@ -220,7 +227,7 @@ func (f *File) Read(into sobek.Value) *sobek.Promise {
 	// occurs on the main thread, during the promise's resolution.
 	callback := f.vu.RegisterCallback()
 	go func() {
-		n, readErr := f.file.Read(buffer)
+		n, readErr := f.Impl.Read(buffer)
 		callback(func() error {
 			_ = copy(intoBytes[0:n], buffer)
 
@@ -283,7 +290,7 @@ func (f *File) Seek(offset sobek.Value, whence sobek.Value) *sobek.Promise {
 
 	callback := f.vu.RegisterCallback()
 	go func() {
-		newOffset, err := f.file.Seek(intOffset, seekMode)
+		newOffset, err := f.Impl.Seek(intOffset, seekMode)
 		callback(func() error {
 			if err != nil {
 				reject(err)
