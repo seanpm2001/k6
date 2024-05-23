@@ -24,10 +24,13 @@ type file struct {
 }
 
 // Stat returns a FileInfo describing the named file.
-func (f *file) stat() *FileInfo {
+func (f *file) Stat() *FileInfo {
 	filename := filepath.Base(f.path)
 	return &FileInfo{Name: filename, Size: f.size()}
 }
+
+// Ensure that `file` implements the Stater interface.
+var _ Stater = (*file)(nil)
 
 // FileInfo holds information about a file.
 type FileInfo struct {

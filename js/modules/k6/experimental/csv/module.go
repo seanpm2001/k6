@@ -99,7 +99,7 @@ func (mi *ModuleInstance) NewParser(call goja.ConstructorCall) *goja.Object {
 	}
 
 	// Instantiate and configure csv reader
-	r := csv.NewReader(&file.Impl)
+	r := csv.NewReader(file.ReadSeekStater)
 	r.ReuseRecord = true        // evaluate if this is needed, and if it leads to unforeseen issues
 	r.Comma = options.Delimiter // default delimiter, should be modifiable by the user
 
