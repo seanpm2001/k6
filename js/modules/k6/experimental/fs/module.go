@@ -10,6 +10,8 @@ import (
 	"io"
 	"reflect"
 
+	"go.k6.io/k6/lib/fsext"
+
 	"github.com/grafana/sobek"
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"

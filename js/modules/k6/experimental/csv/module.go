@@ -8,13 +8,14 @@ import (
 	"io"
 	"sync/atomic"
 
+	"github.com/grafana/sobek"
+
 	"gopkg.in/guregu/null.v3"
 
 	"go.k6.io/k6/js/promises"
 
 	"go.k6.io/k6/js/modules/k6/experimental/fs"
 
-	"github.com/dop251/goja"
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 )
@@ -76,21 +77,21 @@ type Parser struct {
 }
 
 // NewParser creates a new CSV parser instance.
-func (mi *ModuleInstance) NewParser(call goja.ConstructorCall) *goja.Object {
+func (mi *ModuleInstance) NewParser(call sobek.ConstructorCall) *sobek.Object {
 	rt := mi.vu.Runtime()
 
-	if len(call.Arguments) < 1 || goja.IsUndefined(call.Argument(0)) {
+	if len(call.Arguments) < 1 || sobek.IsUndefined(call.Argument(0)) {
 		common.Throw(rt, fmt.Errorf("parser constructor takes at least one non-nil source argument"))
 	}
 
-	// 1. Make sure the Goja object is a fs.File (goja operation)
+	// 1. Make sure the Goja object is a fs.File (sobek operation)
 	var file fs.File
 	if err := mi.vu.Runtime().ExportTo(call.Argument(0), &file); err != nil {
 		common.Throw(mi.vu.Runtime(), fmt.Errorf("first arg doesn't appear to be a *file.File instance"))
 	}
 
 	var options parserOptions
-	if len(call.Arguments) == 2 && !goja.IsUndefined(call.Argument(1)) {
+	if len(call.Arguments) == 2 && !sobek.IsUndefined(call.Argument(1)) {
 		var err error
 		options, err = newParserOptionsFrom(call.Argument(1).ToObject(rt))
 		if err != nil {
@@ -138,7 +139,7 @@ func (mi *ModuleInstance) NewParser(call goja.ConstructorCall) *goja.Object {
 }
 
 // Next returns the next row in the CSV file.
-func (p *Parser) Next() *goja.Promise {
+func (p *Parser) Next() *sobek.Promise {
 	promise, resolve, reject := promises.New(p.vu)
 
 	go func() {
@@ -196,7 +197,7 @@ type parserOptions struct {
 }
 
 // newParserOptions creates a new parserOptions instance from the given Goja object.
-func newParserOptionsFrom(obj *goja.Object) (parserOptions, error) {
+func newParserOptionsFrom(obj *sobek.Object) (parserOptions, error) {
 	// Initialize default options
 	options := parserOptions{
 		Delimiter:     ',',
